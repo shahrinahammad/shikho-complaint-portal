@@ -1,145 +1,111 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createBrowserClient(supabaseUrl, supabaseKey)
 
-export default function UserManagementPage() {
-  const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
-  
-  // ফর্ম স্টেট
-  const [actionLoading, setActionLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'create' | 'reset'>('create')
+export default function ShikhoComplaintForm() {
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  // Create User State
-  const [newName, setNewName] = useState('')
-  const [newEmail, setNewEmail] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [newRole, setNewRole] = useState('Agent')
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg('')
+    
+    const formElement = e.currentTarget;
+    
+    try {
+      const formData = new FormData(formElement)
+      
+      const { error } = await supabase.from('complaints').insert({
+        title: formData.get('title'),
+        description: formData.get('description'),
+        customer_name: formData.get('customer_name'),
+        customer_contact: formData.get('customer_contact'),
+        status: 'Open'
+      })
 
-  // Reset Password State
-  const [resetEmail, setResetEmail] = useState('')
-  const [resetPassword, setResetPassword] = useState('')
-
-  useEffect(() => {
-    async function checkAdmin() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/login'; return; }
-
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      if (profile?.role !== 'Admin') {
-        alert('অ্যাক্সেস ডিনাইড! শুধুমাত্র অ্যাডমিনরা এই পেজে আসতে পারবেন।')
-        window.location.href = '/dashboard'
-        return
+      if (error) {
+        setErrorMsg('Supabase Error: ' + error.message)
+      } else {
+        setSuccess(true)
+        formElement.reset()
+        setTimeout(() => setSuccess(false), 5000)
       }
-      setIsAdmin(true)
+    } catch (err: any) {
+      setErrorMsg('System Error: ' + err.message)
+    } finally {
       setLoading(false)
     }
-    checkAdmin()
-  }, [])
-
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setActionLoading(true)
-    const res = await fetch('/api/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'CREATE_USER', name: newName, email: newEmail, password: newPassword, role: newRole })
-    })
-    const data = await res.json()
-    if (data.success) {
-      alert(data.message); setNewName(''); setNewEmail(''); setNewPassword('');
-    } else { alert('Error: ' + data.error); }
-    setActionLoading(false)
   }
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setActionLoading(true)
-    const res = await fetch('/api/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'RESET_PASSWORD', email: resetEmail, password: resetPassword })
-    })
-    const data = await res.json()
-    if (data.success) {
-      alert(data.message); setResetEmail(''); setResetPassword('');
-    } else { alert('Error: ' + data.error); }
-    setActionLoading(false)
-  }
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold">লোড হচ্ছে...</div>
 
   return (
-    <div className="min-h-screen p-6 bg-[#f0f2f5]">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen flex items-center justify-center p-4 font-sans" style={{ backgroundColor: 'rgba(53,72,148,0.05)' }}>
+      <div className="max-w-2xl w-full bg-white p-8 rounded-3xl shadow-2xl border border-gray-100">
         
-        {/* Header */}
-        <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Logo" className="h-10" />
+        <div className="text-center mb-8">
+          <img src="/logo.png" alt="Shikho Logo" className="h-20 mx-auto mb-4 object-contain" />
+          
+          <h1 className="text-3xl font-extrabold" style={{ color: '#354894' }}>Shikho Complaint Portal</h1>
+          <p className="mt-2 font-medium" style={{ color: 'rgba(53,72,148,0.7)' }}>আমাদের শিখো প্ল্যাটফর্মে আপনার যেকোনো সমস্যার কথা জানান।</p>
+        </div>
+        
+        {success && (
+          <div className="mb-6 p-4 rounded-xl text-center font-semibold animate-bounce border" style={{ backgroundColor: 'rgba(239,173,30,0.1)', color: '#354894', borderColor: '#EFAD1E' }}>
+            ✨ আপনার কমপ্লেনটি সফলভাবে শিখো টিমের কাছে পৌঁছেছে!
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="mb-6 p-4 rounded-xl text-center font-semibold border text-white" style={{ backgroundColor: '#EE3D5E', borderColor: '#EE3D5E' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h1 className="text-2xl font-black text-[#354894]">Admin Panel</h1>
-              <p className="text-sm font-bold text-gray-400">স্টাফ অ্যাকাউন্ট ও পাসওয়ার্ড ম্যানেজমেন্ট</p>
+              <label className="block text-sm font-bold mb-2" style={{ color: '#354894' }}>শিক্ষার্থীর নাম</label>
+              <input required name="customer_name" type="text" className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none transition-all" style={{ outlineColor: '#CF278D' }} placeholder="আপনার পুরো নাম লিখুন" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2" style={{ color: '#354894' }}>মোবাইল নম্বর / ইমেইল</label>
+              <input required name="customer_contact" type="text" className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none transition-all" style={{ outlineColor: '#CF278D' }} placeholder="নম্বর বা ইমেইল দিন" />
             </div>
           </div>
-          <button onClick={() => window.location.href='/dashboard'} className="px-5 py-2.5 bg-[#EFAD1E] text-white font-bold rounded-xl shadow-md">Dashboard</button>
-        </div>
 
-        {/* Tab Buttons */}
-        <div className="flex gap-4 mb-6">
-          <button onClick={() => setActiveTab('create')} className={`flex-1 py-4 font-black rounded-2xl transition-all shadow-sm ${activeTab === 'create' ? 'bg-[#354894] text-white' : 'bg-white text-gray-500 border'}`}>
-            ➕ নতুন স্টাফ অ্যাকাউন্ট তৈরি
+          <div>
+            <label className="block text-sm font-bold mb-2" style={{ color: '#354894' }}>সমস্যার ধরণ বেছে নিন</label>
+            <select required name="title" className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none transition-all" style={{ outlineColor: '#CF278D', color: '#354894' }}>
+              <option value="">নিচের যেকোনো একটি অপশন বেছে নিন...</option>
+              <option value="পেমেন্ট ও রিফান্ড">পেমেন্ট বা রিফান্ড সংক্রান্ত সমস্যা</option>
+              <option value="কোর্স সাবস্ক্রিপশন">কোর্স কিনলেও এক্সেস পাচ্ছি না</option>
+              <option value="লাইভ ক্লাস">লাইভ ক্লাসে যোগ দিতে সমস্যা</option>
+              <option value="ভিডিও প্লেব্যাক">ভিডিও চলছে বাফারিং হচ্ছে বা চলছে না</option>
+              <option value="অ্যাপ লগইন">অ্যাপে লগইন করতে পারছি না</option>
+              <option value="কুইজ ও রেজাল্ট">কুইজ সাবমিট বা রেজাল্টে সমস্যা</option>
+              <option value="নোটস ও শিট">নোটস বা লেকচার শিট ডাউনলোড হচ্ছে না</option>
+              <option value="অ্যাকাউন্ট ভেরিফিকেশন">মোবাইল নম্বর বা ইমেইল ভেরিফিকেশন</option>
+              <option value="মেন্টর সাপোর্ট">মেন্টরদের সাথে যোগাযোগ করতে পারছি না</option>
+              <option value="প্রমোশনাল অফার">ডিসকাউন্ট কোড বা অফার কাজ করছে না</option>
+              <option value="অন্যান্য">অন্যান্য সমস্যা</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold mb-2" style={{ color: '#354894' }}>বিস্তারিত বলুন</label>
+            <textarea required name="description" rows={5} className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none transition-all" style={{ outlineColor: '#CF278D' }} placeholder="আপনার সমস্যার কথা এখানে বিস্তারিতভাবে লিখুন..."></textarea>
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full text-white font-extrabold text-lg p-4 rounded-xl active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none" style={{ backgroundColor: '#CF278D', boxShadow: '0 4px 14px rgba(207,39,141,0.4)' }}>
+            {loading ? 'প্রসেসিং হচ্ছে...' : 'কমপ্লেন সাবমিট করুন'}
           </button>
-          <button onClick={() => setActiveTab('reset')} className={`flex-1 py-4 font-black rounded-2xl transition-all shadow-sm ${activeTab === 'reset' ? 'bg-[#EE3D5E] text-white' : 'bg-white text-gray-500 border'}`}>
-            🔑 পাসওয়ার্ড রিসেট করুন
-          </button>
-        </div>
-
-        {/* Content Area */}
-        <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100">
-          
-          {/* Create User Form */}
-          {activeTab === 'create' && (
-            <form onSubmit={handleCreateUser} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label className="block text-sm font-bold mb-2">স্টাফের পুরো নাম</label><input required value={newName} onChange={e=>setNewName(e.target.value)} type="text" className="w-full p-3 bg-gray-50 border rounded-xl outline-none" placeholder="Mr. Agent" /></div>
-                <div><label className="block text-sm font-bold mb-2">স্টাফের ইমেইল</label><input required value={newEmail} onChange={e=>setNewEmail(e.target.value)} type="email" className="w-full p-3 bg-gray-50 border rounded-xl outline-none" placeholder="agent@shikho.com" /></div>
-                <div><label className="block text-sm font-bold mb-2">নতুন পাসওয়ার্ড</label><input required value={newPassword} onChange={e=>setNewPassword(e.target.value)} type="text" minLength={6} className="w-full p-3 bg-gray-50 border rounded-xl outline-none" placeholder="কমপক্ষে ৬ অক্ষর" /></div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">স্টাফের রোল (Role)</label>
-                  <select value={newRole} onChange={e=>setNewRole(e.target.value)} className="w-full p-3 bg-gray-50 border rounded-xl outline-none">
-                    <option value="Agent">Agent (এজেন্ট)</option>
-                    <option value="Supervisor">Supervisor (সুপারভাইজার)</option>
-                    <option value="Admin">Admin (অ্যাডমিন)</option>
-                  </select>
-                </div>
-              </div>
-              <button type="submit" disabled={actionLoading} className="w-full py-4 bg-[#354894] text-white font-black rounded-xl shadow-md disabled:opacity-50 mt-4">
-                {actionLoading ? 'অ্যাকাউন্ট তৈরি হচ্ছে...' : 'নতুন অ্যাকাউন্ট তৈরি করুন'}
-              </button>
-            </form>
-          )}
-
-          {/* Reset Password Form */}
-          {activeTab === 'reset' && (
-            <form onSubmit={handleResetPassword} className="space-y-6 max-w-lg mx-auto">
-              <div className="text-center mb-6">
-                <p className="text-sm font-bold text-gray-500">যে স্টাফের পাসওয়ার্ড ভুলে গেছেন, তার ইমেইল এবং নতুন একটি পাসওয়ার্ড দিন।</p>
-              </div>
-              <div><label className="block text-sm font-bold mb-2">স্টাফের ইমেইল এড্রেস</label><input required value={resetEmail} onChange={e=>setResetEmail(e.target.value)} type="email" className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-red-500" placeholder="agent@shikho.com" /></div>
-              <div><label className="block text-sm font-bold mb-2">নতুন পাসওয়ার্ড</label><input required value={resetPassword} onChange={e=>setResetPassword(e.target.value)} type="text" minLength={6} className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-red-500" placeholder="নতুন পাসওয়ার্ড দিন" /></div>
-              <button type="submit" disabled={actionLoading} className="w-full py-4 bg-[#EE3D5E] text-white font-black rounded-xl shadow-md disabled:opacity-50">
-                {actionLoading ? 'আপডেট হচ্ছে...' : 'পাসওয়ার্ড জোরপূর্বক রিসেট করুন'}
-              </button>
-            </form>
-          )}
-
-        </div>
+        </form>
       </div>
     </div>
   )
