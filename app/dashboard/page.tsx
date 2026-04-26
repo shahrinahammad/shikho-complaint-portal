@@ -12,9 +12,9 @@ const translations = {
   bn: {
     dash: 'Dashboard', welcome: 'স্বাগতম,', logout: 'লগআউট', newComp: '+ নতুন কমপ্লেন',
     total: 'Total', open: 'Open', inProg: 'In Progress', comp: 'Completed', closed: 'Closed', reopen: 'Reopen',
-    recent: 'সাম্প্রতিক কমপ্লেনসমূহ', search: 'নাম বা নম্বর দিয়ে খুঁজুন...', to: 'To',
-    cust: 'কাস্টমার', issue: 'সমস্যার ধরণ', owner: 'দায়িত্বপ্রাপ্ত (Owner)', action: 'অ্যাকশন / স্ট্যাটাস',
-    noData: 'কোনো কমপ্লেন পাওয়া যায়নি।', unassigned: 'এখনো কেউ নেয়নি', accept: 'Accept Ticket', details: 'বিস্তারিত',
+    recent: 'সাম্প্রতিক কমপ্লেনসমূহ', search: 'নাম বা নম্বর দিয়ে খুঁজুন...', to: 'To',
+    cust: 'কাস্টমার', issue: 'সমস্যার ধরণ', owner: 'দায়িত্বপ্রাপ্ত (Owner)', action: 'অ্যাকশন / স্ট্যাটাস',
+    noData: 'কোনো কমপ্লেন পাওয়া যায়নি।', unassigned: 'এখনো কেউ নেয়নি', accept: 'Accept Ticket', details: 'বিস্তারিত',
     detailTitle: 'কমপ্লেন বিস্তারিত', custInfo: 'কাস্টমার ইনফো', name: 'নাম', contact: 'যোগাযোগ', desc: 'বিস্তারিত বিবরণ',
     intNotes: 'ইন্টারনাল নোটস', noNotes: 'কোনো নোট নেই।', writeNote: 'নতুন নোট লিখুন...', saveNote: 'নোট সেভ করুন',
     createTitle: 'নতুন কমপ্লেন লগ করুন', submit: 'কমপ্লেন সাবমিট করুন', loading: 'লগ করা হচ্ছে...', selectOpt: 'অপশন বেছে নিন...'
@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
-  // 🎨 ডার্ক মোডের জন্য ডায়নামিক কালার
+  // 🎨 ডার্ক মোডের জন্য ডায়নামিক কালার
   const themeBg = darkMode ? '#121212' : 'rgba(53,72,148,0.05)';
   const cardBg = darkMode ? '#1E1E2F' : '#ffffff';
   const textColor = darkMode ? '#F3F4F6' : '#354894';
@@ -83,7 +83,6 @@ export default function DashboardPage() {
     window.location.href = '/login'
   }
 
-  // 🚀 এখানে আমরা ট্র্যাক করছি কে কমপ্লেনটা তৈরি করলো
   const handleCreateComplaint = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setCreateLoading(true)
@@ -95,8 +94,8 @@ export default function DashboardPage() {
       customer_name: formData.get('customer_name'), 
       customer_contact: formData.get('customer_contact'), 
       status: 'Open',
-      created_by_id: user.id, // কে বানালো তার আইডি
-      created_by_name: profile.full_name // কে বানালো তার নাম
+      created_by_id: user.id,
+      created_by_name: profile.full_name
     }
     
     const { data, error } = await supabase.from('complaints').insert(newComplaintData).select().single()
@@ -108,7 +107,6 @@ export default function DashboardPage() {
     setCreateLoading(false)
   }
 
-  // 🔍 সার্চ এবং ডেট ফিল্টার
   const filteredComplaints = complaints.filter(c => {
     const cDate = new Date(c.created_at);
     const sDate = startDate ? new Date(startDate) : new Date('2000-01-01');
@@ -147,11 +145,27 @@ export default function DashboardPage() {
     setLoadingNotes(false)
   }
 
+  // ⚠️ এই ফাংশনটি আপডেট করা হয়েছে এরর ধরার জন্য
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
-    const noteData = { complaint_id: selectedComplaint.id, author_name: profile.full_name, author_role: profile.role, content: newNote }
+    setLoadingNotes(true); // বাটনে লোডিং দেখাবে
+    
+    const noteData = { 
+      complaint_id: selectedComplaint.id, 
+      author_name: profile.full_name, 
+      author_role: profile.role, 
+      content: newNote 
+    }
+    
     const { error } = await supabase.from('notes').insert(noteData)
-    if (!error) { setNewNote(''); setNotes([...notes, { ...noteData, created_at: new Date().toISOString() }]); }
+    
+    if (error) {
+      alert('❌ নোট সেভ করতে সমস্যা হচ্ছে: ' + error.message)
+    } else {
+      setNewNote(''); 
+      setNotes([...notes, { ...noteData, created_at: new Date().toISOString() }]); 
+    }
+    setLoadingNotes(false);
   }
 
   const getStatusStyle = (status: string) => {
@@ -187,6 +201,7 @@ export default function DashboardPage() {
             <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-xl border text-xl transition-all shadow-sm" style={{ borderColor, backgroundColor: inputBg }}>{darkMode ? '☀️' : '🌙'}</button>
             <button onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')} className="px-4 py-2.5 rounded-xl border font-bold transition-all shadow-sm" style={{ borderColor, backgroundColor: inputBg }}>{lang === 'bn' ? 'ENG' : 'বাংলা'}</button>
             <button onClick={() => window.location.href = '/reports'} className="px-5 py-2.5 rounded-xl text-white font-bold shadow-md flex items-center gap-2" style={{ backgroundColor: '#EFAD1E' }}>📊 Reports</button>
+            <button onClick={() => window.location.href = '/users'} className="px-5 py-2.5 rounded-xl text-white font-bold shadow-md flex items-center gap-2" style={{ backgroundColor: '#EE3D5E' }}>👥 Users</button>
             <button onClick={() => setIsCreateModalOpen(true)} className="px-5 py-2.5 rounded-xl text-white font-bold shadow-md flex items-center gap-2" style={{ backgroundColor: '#CF278D' }}>{t.newComp}</button>
             <button onClick={handleLogout} className="px-5 py-2.5 rounded-xl text-white font-bold transition-all active:scale-95" style={{ backgroundColor: '#EE3D5E' }}>{t.logout}</button>
           </div>
@@ -321,7 +336,7 @@ export default function DashboardPage() {
                   <select required name="title" className="w-full p-3 border rounded-xl outline-none focus:border-pink-500 transition-all" style={{ backgroundColor: inputBg, color: textColor, borderColor }}>
                     <option value="">{t.selectOpt}</option>
                     <option value="পেমেন্ট ও রিফান্ড">পেমেন্ট বা রিফান্ড সংক্রান্ত সমস্যা</option>
-                    <option value="কোর্স সাবস্ক্রিপশন">কোর্স কিনলেও এক্সেস পাচ্ছি ছুটি</option>
+                    <option value="কোর্স সাবস্ক্রিপশন">কোর্স কিনলেও এক্সেস পাচ্ছি না</option>
                     <option value="লাইভ ক্লাস">লাইভ ক্লাসে যোগ দিতে সমস্যা</option>
                     <option value="ভিডিও প্লেব্যাক">ভিডিও চলছে বাফারিং হচ্ছে বা চলছে না</option>
                     <option value="অ্যাপ লগইন">অ্যাপে লগইন করতে পারছি না</option>
@@ -362,7 +377,7 @@ export default function DashboardPage() {
               <div className="flex flex-col h-full rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: cardBg, borderColor }}>
                 <h3 className="font-bold text-lg p-4 border-b" style={{ color: '#CF278D', borderColor, backgroundColor: darkMode ? 'rgba(207,39,141,0.1)' : 'rgba(207,39,141,0.05)' }}>{t.intNotes}</h3>
                 <div className="flex-1 p-4 overflow-y-auto space-y-4 max-h-[40vh]">
-                  {loadingNotes ? <p className="text-center font-medium py-4" style={{ color: textMuted }}>Loading...</p> : notes.length === 0 ? <p className="text-center font-medium py-4" style={{ color: textMuted }}>{t.noNotes}</p> : notes.map((note, index) => (
+                  {loadingNotes && notes.length === 0 ? <p className="text-center font-medium py-4" style={{ color: textMuted }}>Loading...</p> : notes.length === 0 ? <p className="text-center font-medium py-4" style={{ color: textMuted }}>{t.noNotes}</p> : notes.map((note, index) => (
                     <div key={index} className="p-3 rounded-xl border" style={{ backgroundColor: inputBg, borderColor }}>
                       <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">{note.author_name} <span className="text-xs opacity-70">({note.author_role})</span></span><span className="text-xs" style={{ color: textMuted }}>{new Date(note.created_at).toLocaleDateString('bn-BD')}</span></div>
                       <p className="text-sm">{note.content}</p>
@@ -371,7 +386,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="p-4 border-t" style={{ borderColor, backgroundColor: darkMode ? 'rgba(0,0,0,0.1)' : '#F9FAFB' }}>
                   <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder={t.writeNote} className="w-full p-3 rounded-xl border focus:outline-none focus:border-pink-500 text-sm mb-3 resize-none" rows={2} style={{ backgroundColor: cardBg, color: textColor, borderColor }} />
-                  <button onClick={handleAddNote} className="w-full py-2.5 rounded-xl text-white font-bold transition-all active:scale-95" style={{ backgroundColor: '#CF278D' }}>{t.saveNote}</button>
+                  <button onClick={handleAddNote} disabled={loadingNotes} className="w-full py-2.5 rounded-xl text-white font-bold transition-all active:scale-95 disabled:opacity-50" style={{ backgroundColor: '#CF278D' }}>
+                    {loadingNotes ? 'সেভ হচ্ছে...' : t.saveNote}
+                  </button>
                 </div>
               </div>
             </div>
