@@ -8,139 +8,138 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createBrowserClient(supabaseUrl, supabaseKey)
 
 export default function UserManagementPage() {
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
+  
+  // ফর্ম স্টেট
+  const [actionLoading, setActionLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'create' | 'reset'>('create')
+
+  // Create User State
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newRole, setNewRole] = useState('Agent')
+
+  // Reset Password State
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetPassword, setResetPassword] = useState('')
 
   useEffect(() => {
-    async function loadUsers() {
-      // ১. বর্তমান ইউজার চেক করা
+    async function checkAdmin() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        window.location.href = '/login'
-        return
-      }
+      if (!user) { window.location.href = '/login'; return; }
 
-      // ২. বর্তমান ইউজারের রোল চেক করা (শুধুমাত্র অ্যাডমিন ঢুকতে পারবে)
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (profileData?.role !== 'Admin') {
-        alert('অ্যাক্সেস ডিনাইড! এই পেজে শুধুমাত্র অ্যাডমিনরা প্রবেশ করতে পারবেন।')
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (profile?.role !== 'Admin') {
+        alert('অ্যাক্সেস ডিনাইড! শুধুমাত্র অ্যাডমিনরা এই পেজে আসতে পারবেন।')
         window.location.href = '/dashboard'
         return
       }
-      setCurrentUser(profileData)
-
-      // ৩. ডাটাবেস থেকে সব স্টাফের তালিকা নিয়ে আসা
-      const { data: allProfiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-      if (allProfiles) setProfiles(allProfiles)
-      
+      setIsAdmin(true)
       setLoading(false)
     }
-    loadUsers()
+    checkAdmin()
   }, [])
 
-  // রোল (Role) আপডেট করার ফাংশন
-  const updateRole = async (userId: string, newRole: string) => {
-    // UI সাথে সাথে আপডেট করা
-    setProfiles(profiles.map(p => p.id === userId ? { ...p, role: newRole } : p))
-    
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
-    if (error) alert('রোল আপডেট করতে সমস্যা হয়েছে!')
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setActionLoading(true)
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'CREATE_USER', name: newName, email: newEmail, password: newPassword, role: newRole })
+    })
+    const data = await res.json()
+    if (data.success) {
+      alert(data.message); setNewName(''); setNewEmail(''); setNewPassword('');
+    } else { alert('Error: ' + data.error); }
+    setActionLoading(false)
   }
 
-  // স্টাফদের সার্চ ফিল্টার
-  const filteredProfiles = profiles.filter(p => 
-    p.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setActionLoading(true)
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'RESET_PASSWORD', email: resetEmail, password: resetPassword })
+    })
+    const data = await res.json()
+    if (data.success) {
+      alert(data.message); setResetEmail(''); setResetPassword('');
+    } else { alert('Error: ' + data.error); }
+    setActionLoading(false)
+  }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-xl" style={{ color: '#354894' }}>লোড হচ্ছে...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold">লোড হচ্ছে...</div>
 
   return (
-    <div className="min-h-screen p-6 font-sans" style={{ backgroundColor: 'rgba(53,72,148,0.05)' }}>
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen p-6 bg-[#f0f2f5]">
+      <div className="max-w-4xl mx-auto">
         
-        {/* হেডার */}
-        <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6 gap-4">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg" style={{ backgroundColor: '#CF278D' }}>
-              <span className="text-white text-2xl font-bold">👥</span>
-            </div>
+        {/* Header */}
+        <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo" className="h-10" />
             <div>
-              <h1 className="text-3xl font-extrabold" style={{ color: '#354894' }}>User Management</h1>
-              <p className="mt-1 font-semibold text-gray-500">
-                স্টাফদের রোল (Role) এবং অ্যাক্সেস কন্ট্রোল প্যানেল
-              </p>
+              <h1 className="text-2xl font-black text-[#354894]">Admin Panel</h1>
+              <p className="text-sm font-bold text-gray-400">স্টাফ অ্যাকাউন্ট ও পাসওয়ার্ড ম্যানেজমেন্ট</p>
             </div>
           </div>
-          
-          <div className="flex gap-3">
-            <button onClick={() => window.location.href = '/dashboard'} className="px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm border bg-white text-gray-700 hover:bg-gray-50">
-              ড্যাশবোর্ডে ফিরুন
-            </button>
-          </div>
+          <button onClick={() => window.location.href='/dashboard'} className="px-5 py-2.5 bg-[#EFAD1E] text-white font-bold rounded-xl shadow-md">Dashboard</button>
         </div>
 
-        {/* ইউজার লিস্ট টেবিল */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 gap-4">
-            <h2 className="text-xl font-bold" style={{ color: '#354894' }}>সকল স্টাফের তালিকা ({profiles.length})</h2>
-            <input 
-              type="text" 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-              placeholder="ইমেইল দিয়ে খুঁজুন..." 
-              className="p-2.5 rounded-lg border outline-none text-sm font-semibold focus:border-pink-500 w-full md:w-64"
-            />
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr style={{ backgroundColor: 'rgba(207,39,141,0.05)', color: '#354894' }}>
-                  <th className="p-4 font-bold border-b">ইমেইল / ইউজারনেম</th>
-                  <th className="p-4 font-bold border-b text-center">বর্তমান রোল (Role)</th>
-                  <th className="p-4 font-bold border-b text-center">অ্যাকশন (রোল পরিবর্তন করুন)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProfiles.length === 0 ? (
-                  <tr><td colSpan={3} className="p-8 text-center text-gray-500 font-medium">কোনো ইউজার পাওয়া যায়নি।</td></tr>
-                ) : (
-                  filteredProfiles.map((profile) => (
-                    <tr key={profile.id} className="hover:bg-gray-50 border-b border-gray-50 transition-colors">
-                      <td className="p-4">
-                        <div className="font-bold text-gray-800">{profile.full_name}</div>
-                        <div className="text-xs text-gray-400 mt-1">ID: {profile.id.substring(0, 8)}...</div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className="text-sm px-3 py-1 rounded-full text-white font-bold" style={{ 
-                          backgroundColor: profile.role === 'Admin' ? '#EE3D5E' : profile.role === 'Supervisor' ? '#EFAD1E' : '#CF278D' 
-                        }}>
-                          {profile.role || 'Agent'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center flex justify-center">
-                        <select 
-                          value={profile.role || 'Agent'} 
-                          onChange={(e) => updateRole(profile.id, e.target.value)}
-                          disabled={profile.id === currentUser?.id} // নিজেকে নিজে ডাউনগ্রেড করা বন্ধ
-                          className="px-3 py-1.5 text-sm font-bold rounded-lg cursor-pointer outline-none transition-all border border-gray-300 bg-white focus:border-pink-500 disabled:opacity-50"
-                          style={{ color: '#354894' }}
-                        >
-                          <option value="Admin">👑 Admin</option>
-                          <option value="Supervisor">🛡️ Supervisor</option>
-                          <option value="Agent">👨‍💻 Agent</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* Tab Buttons */}
+        <div className="flex gap-4 mb-6">
+          <button onClick={() => setActiveTab('create')} className={`flex-1 py-4 font-black rounded-2xl transition-all shadow-sm ${activeTab === 'create' ? 'bg-[#354894] text-white' : 'bg-white text-gray-500 border'}`}>
+            ➕ নতুন স্টাফ অ্যাকাউন্ট তৈরি
+          </button>
+          <button onClick={() => setActiveTab('reset')} className={`flex-1 py-4 font-black rounded-2xl transition-all shadow-sm ${activeTab === 'reset' ? 'bg-[#EE3D5E] text-white' : 'bg-white text-gray-500 border'}`}>
+            🔑 পাসওয়ার্ড রিসেট করুন
+          </button>
         </div>
 
+        {/* Content Area */}
+        <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100">
+          
+          {/* Create User Form */}
+          {activeTab === 'create' && (
+            <form onSubmit={handleCreateUser} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label className="block text-sm font-bold mb-2">স্টাফের পুরো নাম</label><input required value={newName} onChange={e=>setNewName(e.target.value)} type="text" className="w-full p-3 bg-gray-50 border rounded-xl outline-none" placeholder="Mr. Agent" /></div>
+                <div><label className="block text-sm font-bold mb-2">স্টাফের ইমেইল</label><input required value={newEmail} onChange={e=>setNewEmail(e.target.value)} type="email" className="w-full p-3 bg-gray-50 border rounded-xl outline-none" placeholder="agent@shikho.com" /></div>
+                <div><label className="block text-sm font-bold mb-2">নতুন পাসওয়ার্ড</label><input required value={newPassword} onChange={e=>setNewPassword(e.target.value)} type="text" minLength={6} className="w-full p-3 bg-gray-50 border rounded-xl outline-none" placeholder="কমপক্ষে ৬ অক্ষর" /></div>
+                <div>
+                  <label className="block text-sm font-bold mb-2">স্টাফের রোল (Role)</label>
+                  <select value={newRole} onChange={e=>setNewRole(e.target.value)} className="w-full p-3 bg-gray-50 border rounded-xl outline-none">
+                    <option value="Agent">Agent (এজেন্ট)</option>
+                    <option value="Supervisor">Supervisor (সুপারভাইজার)</option>
+                    <option value="Admin">Admin (অ্যাডমিন)</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" disabled={actionLoading} className="w-full py-4 bg-[#354894] text-white font-black rounded-xl shadow-md disabled:opacity-50 mt-4">
+                {actionLoading ? 'অ্যাকাউন্ট তৈরি হচ্ছে...' : 'নতুন অ্যাকাউন্ট তৈরি করুন'}
+              </button>
+            </form>
+          )}
+
+          {/* Reset Password Form */}
+          {activeTab === 'reset' && (
+            <form onSubmit={handleResetPassword} className="space-y-6 max-w-lg mx-auto">
+              <div className="text-center mb-6">
+                <p className="text-sm font-bold text-gray-500">যে স্টাফের পাসওয়ার্ড ভুলে গেছেন, তার ইমেইল এবং নতুন একটি পাসওয়ার্ড দিন।</p>
+              </div>
+              <div><label className="block text-sm font-bold mb-2">স্টাফের ইমেইল এড্রেস</label><input required value={resetEmail} onChange={e=>setResetEmail(e.target.value)} type="email" className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-red-500" placeholder="agent@shikho.com" /></div>
+              <div><label className="block text-sm font-bold mb-2">নতুন পাসওয়ার্ড</label><input required value={resetPassword} onChange={e=>setResetPassword(e.target.value)} type="text" minLength={6} className="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-red-500" placeholder="নতুন পাসওয়ার্ড দিন" /></div>
+              <button type="submit" disabled={actionLoading} className="w-full py-4 bg-[#EE3D5E] text-white font-black rounded-xl shadow-md disabled:opacity-50">
+                {actionLoading ? 'আপডেট হচ্ছে...' : 'পাসওয়ার্ড জোরপূর্বক রিসেট করুন'}
+              </button>
+            </form>
+          )}
+
+        </div>
       </div>
     </div>
   )
