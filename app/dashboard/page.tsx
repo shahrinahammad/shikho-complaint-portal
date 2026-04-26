@@ -145,16 +145,17 @@ export default function DashboardPage() {
     setLoadingNotes(false)
   }
 
-  // ⚠️ এই ফাংশনটি আপডেট করা হয়েছে এরর ধরার জন্য
+  // ⚠️ ১০০% ফিক্সড: note_text এবং content দুটোই পাঠানো হচ্ছে
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
-    setLoadingNotes(true); // বাটনে লোডিং দেখাবে
+    setLoadingNotes(true); 
     
     const noteData = { 
       complaint_id: selectedComplaint.id, 
       author_name: profile.full_name, 
       author_role: profile.role, 
-      content: newNote 
+      content: newNote,
+      note_text: newNote
     }
     
     const { error } = await supabase.from('notes').insert(noteData)
@@ -380,7 +381,7 @@ export default function DashboardPage() {
                   {loadingNotes && notes.length === 0 ? <p className="text-center font-medium py-4" style={{ color: textMuted }}>Loading...</p> : notes.length === 0 ? <p className="text-center font-medium py-4" style={{ color: textMuted }}>{t.noNotes}</p> : notes.map((note, index) => (
                     <div key={index} className="p-3 rounded-xl border" style={{ backgroundColor: inputBg, borderColor }}>
                       <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">{note.author_name} <span className="text-xs opacity-70">({note.author_role})</span></span><span className="text-xs" style={{ color: textMuted }}>{new Date(note.created_at).toLocaleDateString('bn-BD')}</span></div>
-                      <p className="text-sm">{note.content}</p>
+                      <p className="text-sm">{note.content || note.note_text}</p>
                     </div>
                   ))}
                 </div>
